@@ -49,7 +49,7 @@
         .map-small { height: 260px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
         .map-large { height: 320px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
 
-        /* Bottom Sheet Deslizable */
+        /* Bottom Sheet */
         #bottomSheet {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -75,7 +75,7 @@
 
     <!-- HOME -->
     <div id="home" class="screen active">
-        <h1>Conecta</h1>
+        <h1>🚗 Conecta ViajaYa</h1>
         <h2>Panel de Conductor</h2>
         <button onclick="showScreen('loginConductor')">Ya soy conductor</button>
         <button onclick="showScreen('registerConductor')">Registrarme como conductor</button>
@@ -167,7 +167,7 @@
         <button onclick="cerrarSesion()" class="btn-reject" style="margin-top:20px;">Cerrar Sesión</button>
     </div>
 
-    <!-- Bottom Sheet Navigation -->
+    <!-- Bottom Sheet -->
     <div id="bottomSheet">
         <div class="sheet-handle"></div>
         <div style="display:flex; gap:8px;">
@@ -179,7 +179,7 @@
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script>
-        mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW_A";
+        mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW";
 
         let currentUser = null;
         let currentTrip = null;
@@ -204,7 +204,6 @@
                 center: [-99.13, 19.43],
                 zoom: 12
             });
-            // Marcadores de ejemplo
             new mapboxgl.Marker({color: '#00e5ff'}).setLngLat([-99.15, 19.45]).addTo(mapDetail); // Origen
             new mapboxgl.Marker({color: '#ffa500'}).setLngLat([-99.12, 19.42]).addTo(mapDetail); // Parada
             new mapboxgl.Marker({color: '#ff3b3b'}).setLngLat([-99.08, 19.38]).addTo(mapDetail); // Destino
@@ -220,7 +219,7 @@
             });
         }
 
-        // ==================== LOGIN ====================
+        // Login y Registro
         function loginConductor() {
             const tel = document.getElementById('telLogin').value.trim();
             if (!tel) return alert("Ingresa tu teléfono");
@@ -240,10 +239,12 @@
         }
 
         function cerrarSesion() {
-            if (confirm("¿Cerrar sesión?")) location.reload();
+            if (confirm("¿Cerrar sesión?")) {
+                localStorage.removeItem("conductorTel");
+                location.reload();
+            }
         }
 
-        // ==================== ONLINE ====================
         function toggleOnline() {
             isOnline = document.getElementById('toggleOnline').checked;
             document.getElementById('statusText').textContent = isOnline ? "🟢 Online" : "Offline";
@@ -264,7 +265,7 @@
                 div.innerHTML = `
                     <strong>${v.fecha}</strong><br>
                     📍 ${v.origen} → ${v.destino}<br>
-                    <span class="price">$${v.precio}</span> • ${v.km} km • ${v.tiempo} min
+                    <span class="price">$${v.precio}</span> • ${v.km} km
                     <button onclick="verDetalleViaje(${v.id})" style="margin-top:8px;">Ver Detalles</button>
                 `;
                 container.appendChild(div);
@@ -282,16 +283,10 @@
             showScreen('tripDetail');
         }
 
-        function aceptarViaje() {
-            alert("✅ Viaje Aceptado");
-            showScreen('activeTrip');
-        }
+        function aceptarViaje() { alert("✅ Viaje Aceptado"); showScreen('activeTrip'); }
+        function rechazarViaje() { if(confirm("¿Rechazar?")) showScreen('dashboard'); }
 
-        function rechazarViaje() {
-            if(confirm("¿Rechazar este viaje?")) showScreen('dashboard');
-        }
-
-        // ==================== FLUJO VIAJE EN CURSO ====================
+        // Flujo Viaje en Curso
         function irAlOrigenWaze() {
             window.open('https://waze.com/ul?ll=19.45,-99.15&navigate=yes', '_blank');
             document.getElementById('btnLlegado').style.display = 'block';
@@ -310,8 +305,8 @@
         }
 
         function finalizarViaje() {
-            if (confirm("¿Finalizar viaje y confirmar tarifa?")) {
-                alert("🎉 Viaje finalizado correctamente. Tarifa cobrada.");
+            if (confirm("¿Finalizar viaje y cobrar tarifa?")) {
+                alert("🎉 Viaje finalizado correctamente.");
                 showScreen('dashboard');
             }
         }
@@ -328,7 +323,7 @@
             document.getElementById('bottomSheet').classList.add('active');
             const savedTel = localStorage.getItem("conductorTel");
             if (savedTel) {
-                currentUser = { telefono: savedTel };
+                currentUser = { telefono: savedTel, nombre: "Conductor" };
                 showScreen('dashboard');
             } else {
                 showScreen('home');
