@@ -6,7 +6,6 @@
     <title>Conecta - Conductor</title>
     
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.2/mapbox-gl-geocoder.css" rel="stylesheet">
     
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -67,29 +66,31 @@
         input:checked + .slider { background: #00e5ff; }
         input:checked + .slider:before { transform: translateX(26px); }
 
+        /* Bottom Navigation - Solo visible después de login */
         .bottom-nav {
             position: fixed;
             bottom: 0; left: 0; right: 0;
             background: #0b0f1a;
-            display: flex;
+            display: none;
             padding: 10px;
             gap: 8px;
             border-top: 1px solid #1a1f2e;
             z-index: 100;
         }
+        .bottom-nav.active { display: flex; }
     </style>
 </head>
 <body>
 
-    <!-- ==================== PANTALLAS ==================== -->
-
+    <!-- HOME -->
     <div id="home" class="screen active">
-        <h1>Conecta</h1>
+        <h1>🚗 Conecta ViajaYa</h1>
         <h2>Panel de Conductor</h2>
         <button onclick="showScreen('loginConductor')">Ya soy conductor</button>
         <button onclick="showScreen('registerConductor')">Registrarme como conductor</button>
     </div>
 
+    <!-- LOGIN -->
     <div id="loginConductor" class="screen">
         <h2>Iniciar Sesión</h2>
         <input type="tel" id="telLogin" placeholder="+52 ...">
@@ -98,6 +99,7 @@
         <button onclick="showScreen('home')" class="btn-secondary">← Volver</button>
     </div>
 
+    <!-- REGISTRO -->
     <div id="registerConductor" class="screen">
         <h2>Registro de Conductor</h2>
         <input type="text" id="nombreConductor" placeholder="Nombre completo">
@@ -121,7 +123,7 @@
         <div id="viajesList"></div>
     </div>
 
-    <!-- DETALLE DE VIAJE -->
+    <!-- DETALLE VIAJE -->
     <div id="tripDetail" class="screen">
         <button onclick="showScreen('dashboard')" class="btn-secondary" style="width:auto;">← Volver</button>
         <h2>Detalles del Viaje</h2>
@@ -142,10 +144,20 @@
         <h2>Viaje en Curso</h2>
         <div id="mapActive" class="map-large"></div>
         <p id="tripStatus" style="text-align:center; font-size:18px; margin:15px 0;">Yendo a recoger al pasajero...</p>
-        
         <button onclick="llegueAlOrigen()" class="btn-primary">Llegué al Origen</button>
         <button onclick="iniciarViaje()" class="btn-primary">Iniciar Viaje</button>
         <button onclick="finalizarViaje()" class="btn-final">Finalizar Viaje</button>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div id="history" class="screen">
+        <h2>Historial de Viajes</h2>
+        <div style="margin-bottom:15px;">
+            <button onclick="filterHistory('all')" style="width:auto; display:inline-block; margin:5px;">Todos</button>
+            <button onclick="filterHistory('week')" style="width:auto; display:inline-block; margin:5px;">Esta Semana</button>
+            <button onclick="filterHistory('month')" style="width:auto; display:inline-block; margin:5px;">Este Mes</button>
+        </div>
+        <div id="historyList"></div>
     </div>
 
     <!-- PERFIL -->
@@ -153,17 +165,21 @@
         <h2>Mi Perfil</h2>
         <div style="background:#121726;padding:20px;border-radius:12px;">
             <p><strong>Nombre:</strong> <span id="perfilNombre">---</span></p>
-            <p><strong>Vehículo:</strong> <span id="perfilVehiculo">---</span></p>
-            <p><strong>Placas:</strong> <span id="perfilPlacas">---</span></p>
-            <p><strong>Ganancias Hoy:</strong> $<span id="gananciasHoy">0</span></p>
-            <p><strong>Calificación:</strong> ⭐ 4.8</p>
+            <p><strong>Vehículo:</strong> <span id="perfilVehiculo">Toyota Camry 2022</span></p>
+            <p><strong>Placas:</strong> <span id="perfilPlacas">ABC-1234</span></p>
+            <hr style="border-color:#333;margin:15px 0;">
+            <h3>Ganancias</h3>
+            <p>Hoy: $<span id="gananciasHoy">1240</span></p>
+            <p>Esta semana: $<span id="gananciasSemana">8750</span></p>
+            <p>Este mes: $<span id="gananciasMes">28500</span></p>
         </div>
         <button onclick="cerrarSesion()" class="btn-reject" style="margin-top:20px;">Cerrar Sesión</button>
     </div>
 
     <!-- Bottom Navigation -->
-    <div class="bottom-nav">
+    <div id="bottomNav" class="bottom-nav">
         <button onclick="showScreen('dashboard')">🚗 Viajes</button>
+        <button onclick="showScreen('history')">📋 Historial</button>
         <button onclick="showScreen('profile')">👤 Perfil</button>
     </div>
 
@@ -178,8 +194,6 @@
         let isOnline = false;
         let refreshInterval = null;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbxjszK1c_tq1Ijpxdgyxz7LMWqlmFYKJUQK-3aC-wjqSInqMbEXqGtWyfr0AuzJP-MnCw/exec";
-
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -188,7 +202,6 @@
             if (screenId === 'activeTrip') initMapActive();
         }
 
-        // ==================== MAPAS ====================
         function initMapDetail() {
             if (mapDetail) return;
             mapDetail = new mapboxgl.Map({ container: 'mapDetail', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 12 });
@@ -198,63 +211,44 @@
             mapActive = new mapboxgl.Map({ container: 'mapActive', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 13 });
         }
 
-        // ==================== LOGIN + PERSISTENCIA ====================
-        async function loginConductor() {
+        // Mostrar/Ocultar Bottom Nav
+        function toggleBottomNav(show) {
+            document.getElementById('bottomNav').classList.toggle('active', show);
+        }
+
+        // ==================== LOGIN ====================
+        function loginConductor() {
             const tel = document.getElementById('telLogin').value.trim();
-            const clave = document.getElementById('claveLogin').value.trim();
+            if (!tel) return alert("Ingresa tu teléfono");
             
-            if (!tel || !clave) return alert("Ingresa teléfono y clave");
-
-            // Preparado para backend real
-            try {
-                const res = await fetch(API_URL, {
-                    method: "POST",
-                    body: JSON.stringify({ tipo: "loginConductor", telefono: tel, clave: clave })
-                });
-                const data = await res.json();
-
-                if (data.status === "ok") {
-                    currentUser = { telefono: tel, nombre: data.nombre || "Conductor" };
-                    localStorage.setItem("conductorTel", tel);
-                    loadProfile();
-                    showScreen('dashboard');
-                    toggleOnline(); // Activa automáticamente
-                } else {
-                    alert("Datos incorrectos");
-                }
-            } catch(e) {
-                // Modo demo
-                currentUser = { telefono: tel, nombre: "Conductor Demo" };
-                localStorage.setItem("conductorTel", tel);
-                loadProfile();
-                showScreen('dashboard');
-                toggleOnline();
-            }
+            currentUser = { telefono: tel, nombre: "Conductor" };
+            localStorage.setItem("conductorTel", tel);
+            toggleBottomNav(true);
+            loadProfile();
+            showScreen('dashboard');
+            toggleOnline();
         }
 
         function registrarConductor() {
             const nombre = document.getElementById('nombreConductor').value.trim();
             const tel = document.getElementById('telConductor').value.trim();
-            if (!nombre || !tel) return alert("Nombre y teléfono son obligatorios");
+            if (!nombre || !tel) return alert("Completa los campos");
 
-            alert("✅ Registro exitoso (simulado)");
             currentUser = { telefono: tel, nombre };
             localStorage.setItem("conductorTel", tel);
+            toggleBottomNav(true);
             loadProfile();
             showScreen('dashboard');
         }
 
         function loadProfile() {
-            if (!currentUser) return;
-            document.getElementById('perfilNombre').textContent = currentUser.nombre;
-            document.getElementById('perfilVehiculo').textContent = "Toyota Camry 2022";
-            document.getElementById('perfilPlacas').textContent = "ABC-1234";
-            document.getElementById('gananciasHoy').textContent = "1240";
+            document.getElementById('perfilNombre').textContent = currentUser ? currentUser.nombre : "---";
         }
 
         function cerrarSesion() {
             if (confirm("¿Cerrar sesión?")) {
                 localStorage.removeItem("conductorTel");
+                toggleBottomNav(false);
                 location.reload();
             }
         }
@@ -267,24 +261,21 @@
 
             if (isOnline) {
                 loadViajesDisponibles();
-                refreshInterval = setInterval(loadViajesDisponibles, 15000); // Cada 15 segundos
-            } else {
-                if (refreshInterval) clearInterval(refreshInterval);
+                refreshInterval = setInterval(loadViajesDisponibles, 15000);
+            } else if (refreshInterval) {
+                clearInterval(refreshInterval);
             }
         }
 
         function loadViajesDisponibles() {
             const container = document.getElementById('viajesList');
-            container.innerHTML = '<p style="text-align:center;color:#666;">Buscando viajes cercanos...</p>';
-
-            // Preparado para backend
-            const viajesMock = [
+            container.innerHTML = '';
+            // Mock data
+            const viajes = [
                 {id:1, pasajero:"María López", origen:"Polanco", destino:"Aeropuerto", km:18.5, precio:320, fecha:"Hoy 16:45"},
                 {id:2, pasajero:"Carlos Ramírez", origen:"Roma Norte", destino:"Santa Fe", km:12.3, precio:245, fecha:"Hoy 17:10"}
             ];
-
-            container.innerHTML = '';
-            viajesMock.forEach(v => {
+            viajes.forEach(v => {
                 const div = document.createElement('div');
                 div.className = 'trip-card';
                 div.innerHTML = `
@@ -309,24 +300,36 @@
         }
 
         function aceptarViaje() { alert("✅ Viaje Aceptado"); showScreen('activeTrip'); }
-        function rechazarViaje() { if(confirm("¿Rechazar este viaje?")) showScreen('dashboard'); }
+        function rechazarViaje() { if(confirm("¿Rechazar?")) showScreen('dashboard'); }
         function llegueAlOrigen() { alert("✅ Llegaste al origen"); }
         function iniciarViaje() { alert("🛣️ Viaje iniciado"); }
         function finalizarViaje() {
             if(confirm("¿Finalizar viaje?")) {
-                alert("🎉 Viaje completado +$" + (currentTrip ? currentTrip.precio : 300));
+                alert("🎉 Viaje completado");
                 showScreen('dashboard');
             }
         }
 
-        // ==================== INICIO ====================
+        // Historial (Mock)
+        function loadHistory() {
+            const container = document.getElementById('historyList');
+            container.innerHTML = `
+                <div class="trip-card">✅ Completado • Hoy 14:20<br>Polanco → Aeropuerto • $320</div>
+                <div class="trip-card">✅ Completado • Ayer 18:45<br>Roma → Santa Fe • $245</div>
+                <div class="trip-card">✅ Completado • 11 Mayo<br>Centro → Coyoacán • $180</div>
+            `;
+        }
+
+        // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
             const savedTel = localStorage.getItem("conductorTel");
             if (savedTel) {
                 currentUser = { telefono: savedTel, nombre: "Conductor" };
+                toggleBottomNav(true);
                 loadProfile();
                 showScreen('dashboard');
             } else {
+                toggleBottomNav(false);
                 showScreen('home');
             }
         });
