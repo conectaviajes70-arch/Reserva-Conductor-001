@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conecta - Conductor</title>
+    
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     
     <style>
@@ -46,36 +47,44 @@
         }
         .price { color: #00e5ff; font-weight: bold; font-size: 18px; }
 
-        .map-small { height: 260px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
-        .map-large { height: 320px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
+        .map-small { height: 220px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
+        .map-large { height: 380px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
 
-        /* Bottom Sheet */
-        #bottomSheet {
+        .status-toggle {
+            display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0;
+        }
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #333; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 26px; width: 26px;
+            left: 4px; bottom: 4px; background: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background: #00e5ff; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Bottom Navigation - Solo visible después de login */
+        .bottom-nav {
             position: fixed;
             bottom: 0; left: 0; right: 0;
             background: #0b0f1a;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            padding: 10px 20px 20px;
-            transform: translateY(70%);
-            transition: transform 0.4s ease;
-            box-shadow: 0 -5px 25px rgba(0,0,0,0.7);
-            z-index: 1000;
+            display: none;
+            padding: 10px;
+            gap: 8px;
+            border-top: 1px solid #1a1f2e;
+            z-index: 100;
         }
-        #bottomSheet.active { transform: translateY(0); }
-        .sheet-handle {
-            width: 40px; height: 5px;
-            background: #555;
-            border-radius: 10px;
-            margin: 8px auto 15px;
-        }
+        .bottom-nav.active { display: flex; }
     </style>
 </head>
 <body>
 
     <!-- HOME -->
     <div id="home" class="screen active">
-        <h1>🚗 Conecta ViajaYa</h1>
+        <h1>Conecta</h1>
         <h2>Panel de Conductor</h2>
         <button onclick="showScreen('loginConductor')">Ya soy conductor</button>
         <button onclick="showScreen('registerConductor')">Registrarme como conductor</button>
@@ -114,40 +123,40 @@
         <div id="viajesList"></div>
     </div>
 
-    <!-- DETALLE DEL VIAJE -->
+    <!-- DETALLE VIAJE -->
     <div id="tripDetail" class="screen">
         <button onclick="showScreen('dashboard')" class="btn-secondary" style="width:auto;">← Volver</button>
         <h2>Detalles del Viaje</h2>
         <div id="mapDetail" class="map-small"></div>
-        
         <div style="background:#121726;padding:15px;border-radius:12px;margin:15px 0;">
+            <p><strong>Pasajero:</strong> <span id="pasajeroNombre"></span></p>
             <p><strong>Origen:</strong> <span id="origenText"></span></p>
             <p><strong>Destino:</strong> <span id="destinoText"></span></p>
-            <p><strong>Parada:</strong> <span id="paradaText">Sin parada</span></p>
-            <p><strong>Distancia:</strong> <span id="kmText"></span> km | <strong>Tiempo:</strong> <span id="tiempoText"></span> min</p>
+            <p><strong>Distancia:</strong> <span id="kmText"></span> km</p>
             <p><strong>Precio:</strong> <span id="precioText" class="price"></span></p>
-            <p><strong>Calificación pasajero:</strong> ⭐ <span id="calificacionText">4.9</span> (18 viajes)</p>
         </div>
         <button onclick="aceptarViaje()" class="btn-accept">✅ Aceptar Viaje</button>
         <button onclick="rechazarViaje()" class="btn-reject">Rechazar</button>
     </div>
 
-    <!-- VIAJE EN CURSO -->
+    <!-- VIAJE ACTIVO -->
     <div id="activeTrip" class="screen">
         <h2>Viaje en Curso</h2>
         <div id="mapActive" class="map-large"></div>
-        <p id="tripStatus" style="text-align:center; font-size:18px; margin:15px 0; font-weight:bold;">Esperando acción...</p>
-        
-        <button onclick="irAlOrigenWaze()" class="btn-primary">🗺️ Ir al Origen (Waze)</button>
-        <button onclick="heLlegado()" id="btnLlegado" style="display:none;" class="btn-primary">✅ He Llegado al Origen</button>
-        <button onclick="iniciarViaje()" id="btnIniciar" style="display:none;" class="btn-primary">🚀 Iniciar Viaje</button>
-        <button onclick="finalizarViaje()" id="btnFinalizar" style="display:none;" class="btn-final">🏁 Finalizar Viaje</button>
-        <button onclick="cancelarViaje()" class="btn-reject" style="margin-top:10px;">❌ Cancelar Viaje</button>
+        <p id="tripStatus" style="text-align:center; font-size:18px; margin:15px 0;">Yendo a recoger al pasajero...</p>
+        <button onclick="llegueAlOrigen()" class="btn-primary">Llegué al Origen</button>
+        <button onclick="iniciarViaje()" class="btn-primary">Iniciar Viaje</button>
+        <button onclick="finalizarViaje()" class="btn-final">Finalizar Viaje</button>
     </div>
 
     <!-- HISTORIAL -->
     <div id="history" class="screen">
         <h2>Historial de Viajes</h2>
+        <div style="margin-bottom:15px;">
+            <button onclick="filterHistory('all')" style="width:auto; display:inline-block; margin:5px;">Todos</button>
+            <button onclick="filterHistory('week')" style="width:auto; display:inline-block; margin:5px;">Esta Semana</button>
+            <button onclick="filterHistory('month')" style="width:auto; display:inline-block; margin:5px;">Este Mes</button>
+        </div>
         <div id="historyList"></div>
     </div>
 
@@ -160,26 +169,23 @@
             <p><strong>Placas:</strong> <span id="perfilPlacas">ABC-1234</span></p>
             <hr style="border-color:#333;margin:15px 0;">
             <h3>Ganancias</h3>
-            <p>Hoy: $<span id="gananciasHoy">1,240</span></p>
-            <p>Esta semana: $<span id="gananciasSemana">8,750</span></p>
-            <p>Este mes: $<span id="gananciasMes">28,500</span></p>
+            <p>Hoy: $<span id="gananciasHoy">1240</span></p>
+            <p>Esta semana: $<span id="gananciasSemana">8750</span></p>
+            <p>Este mes: $<span id="gananciasMes">28500</span></p>
         </div>
         <button onclick="cerrarSesion()" class="btn-reject" style="margin-top:20px;">Cerrar Sesión</button>
     </div>
 
-    <!-- Bottom Sheet -->
-    <div id="bottomSheet">
-        <div class="sheet-handle"></div>
-        <div style="display:flex; gap:8px;">
-            <button onclick="showScreen('dashboard')" style="flex:1;">🚗 Viajes</button>
-            <button onclick="showScreen('history')" style="flex:1;">📋 Historial</button>
-            <button onclick="showScreen('profile')" style="flex:1;">👤 Perfil</button>
-        </div>
+    <!-- Bottom Navigation -->
+    <div id="bottomNav" class="bottom-nav">
+        <button onclick="showScreen('dashboard')">🚗 Viajes</button>
+        <button onclick="showScreen('history')">📋 Historial</button>
+        <button onclick="showScreen('profile')">👤 Perfil</button>
     </div>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script>
-        mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW";
+        mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW_A";
 
         let currentUser = null;
         let currentTrip = null;
@@ -198,33 +204,27 @@
 
         function initMapDetail() {
             if (mapDetail) return;
-            mapDetail = new mapboxgl.Map({
-                container: 'mapDetail',
-                style: 'mapbox://styles/mapbox/navigation-night-v1',
-                center: [-99.13, 19.43],
-                zoom: 12
-            });
-            new mapboxgl.Marker({color: '#00e5ff'}).setLngLat([-99.15, 19.45]).addTo(mapDetail); // Origen
-            new mapboxgl.Marker({color: '#ffa500'}).setLngLat([-99.12, 19.42]).addTo(mapDetail); // Parada
-            new mapboxgl.Marker({color: '#ff3b3b'}).setLngLat([-99.08, 19.38]).addTo(mapDetail); // Destino
+            mapDetail = new mapboxgl.Map({ container: 'mapDetail', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 12 });
         }
-
         function initMapActive() {
             if (mapActive) return;
-            mapActive = new mapboxgl.Map({
-                container: 'mapActive',
-                style: 'mapbox://styles/mapbox/navigation-night-v1',
-                center: [-99.13, 19.43],
-                zoom: 13
-            });
+            mapActive = new mapboxgl.Map({ container: 'mapActive', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 13 });
         }
 
-        // Login y Registro
+        // Mostrar/Ocultar Bottom Nav
+        function toggleBottomNav(show) {
+            document.getElementById('bottomNav').classList.toggle('active', show);
+        }
+
+        // ==================== LOGIN ====================
         function loginConductor() {
             const tel = document.getElementById('telLogin').value.trim();
             if (!tel) return alert("Ingresa tu teléfono");
+            
             currentUser = { telefono: tel, nombre: "Conductor" };
             localStorage.setItem("conductorTel", tel);
+            toggleBottomNav(true);
+            loadProfile();
             showScreen('dashboard');
             toggleOnline();
         }
@@ -233,37 +233,54 @@
             const nombre = document.getElementById('nombreConductor').value.trim();
             const tel = document.getElementById('telConductor').value.trim();
             if (!nombre || !tel) return alert("Completa los campos");
+
             currentUser = { telefono: tel, nombre };
             localStorage.setItem("conductorTel", tel);
+            toggleBottomNav(true);
+            loadProfile();
             showScreen('dashboard');
+        }
+
+        function loadProfile() {
+            document.getElementById('perfilNombre').textContent = currentUser ? currentUser.nombre : "---";
         }
 
         function cerrarSesion() {
             if (confirm("¿Cerrar sesión?")) {
                 localStorage.removeItem("conductorTel");
+                toggleBottomNav(false);
                 location.reload();
             }
         }
 
+        // ==================== ONLINE + AUTO REFRESH ====================
         function toggleOnline() {
             isOnline = document.getElementById('toggleOnline').checked;
             document.getElementById('statusText').textContent = isOnline ? "🟢 Online" : "Offline";
             document.getElementById('statusText').style.color = isOnline ? "#00e5ff" : "#aaa";
-            if (isOnline) loadViajesDisponibles();
+
+            if (isOnline) {
+                loadViajesDisponibles();
+                refreshInterval = setInterval(loadViajesDisponibles, 15000);
+            } else if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
         }
 
         function loadViajesDisponibles() {
             const container = document.getElementById('viajesList');
             container.innerHTML = '';
+            // Mock data
             const viajes = [
-                {id:1, origen:"Polanco", destino:"Aeropuerto", parada:"", km:18.5, tiempo:35, precio:320, fecha:"Hoy 16:45"},
-                {id:2, origen:"Roma Norte", destino:"Santa Fe", parada:"Reforma", km:12.3, tiempo:28, precio:245, fecha:"Hoy 17:10"}
+                {id:1, pasajero:"María López", origen:"Polanco", destino:"Aeropuerto", km:18.5, precio:320, fecha:"Hoy 16:45"},
+                {id:2, pasajero:"Carlos Ramírez", origen:"Roma Norte", destino:"Santa Fe", km:12.3, precio:245, fecha:"Hoy 17:10"}
             ];
             viajes.forEach(v => {
                 const div = document.createElement('div');
                 div.className = 'trip-card';
                 div.innerHTML = `
                     <strong>${v.fecha}</strong><br>
+                    <b>${v.pasajero}</b><br>
                     📍 ${v.origen} → ${v.destino}<br>
                     <span class="price">$${v.precio}</span> • ${v.km} km
                     <button onclick="verDetalleViaje(${v.id})" style="margin-top:8px;">Ver Detalles</button>
@@ -273,59 +290,46 @@
         }
 
         function verDetalleViaje(id) {
-            currentTrip = {id, origen:"Polanco", destino:"Aeropuerto Benito Juárez", parada:"", km:18.5, tiempo:35, precio:320};
+            currentTrip = {id, pasajero:"María López", origen:"Polanco", destino:"Aeropuerto", km:18.5, precio:320};
+            document.getElementById('pasajeroNombre').textContent = currentTrip.pasajero;
             document.getElementById('origenText').textContent = currentTrip.origen;
             document.getElementById('destinoText').textContent = currentTrip.destino;
-            document.getElementById('paradaText').textContent = currentTrip.parada || "Sin parada";
             document.getElementById('kmText').textContent = currentTrip.km;
-            document.getElementById('tiempoText').textContent = currentTrip.tiempo;
             document.getElementById('precioText').textContent = "$" + currentTrip.precio;
             showScreen('tripDetail');
         }
 
         function aceptarViaje() { alert("✅ Viaje Aceptado"); showScreen('activeTrip'); }
         function rechazarViaje() { if(confirm("¿Rechazar?")) showScreen('dashboard'); }
-
-        // Flujo Viaje en Curso
-        function irAlOrigenWaze() {
-            window.open('https://waze.com/ul?ll=19.45,-99.15&navigate=yes', '_blank');
-            document.getElementById('btnLlegado').style.display = 'block';
-        }
-
-        function heLlegado() {
-            document.getElementById('tripStatus').innerHTML = '✅ En el origen<br><small>Esperando pasajero (máx 10 min)</small>';
-            document.getElementById('btnLlegado').style.display = 'none';
-            document.getElementById('btnIniciar').style.display = 'block';
-        }
-
-        function iniciarViaje() {
-            document.getElementById('tripStatus').textContent = '🛣️ Viaje en curso';
-            document.getElementById('btnIniciar').style.display = 'none';
-            document.getElementById('btnFinalizar').style.display = 'block';
-        }
-
+        function llegueAlOrigen() { alert("✅ Llegaste al origen"); }
+        function iniciarViaje() { alert("🛣️ Viaje iniciado"); }
         function finalizarViaje() {
-            if (confirm("¿Finalizar viaje y cobrar tarifa?")) {
-                alert("🎉 Viaje finalizado correctamente.");
+            if(confirm("¿Finalizar viaje?")) {
+                alert("🎉 Viaje completado");
                 showScreen('dashboard');
             }
         }
 
-        function cancelarViaje() {
-            if (confirm("¿Cancelar viaje por no presentación del pasajero?")) {
-                alert("Viaje cancelado.");
-                showScreen('dashboard');
-            }
+        // Historial (Mock)
+        function loadHistory() {
+            const container = document.getElementById('historyList');
+            container.innerHTML = `
+                <div class="trip-card">✅ Completado • Hoy 14:20<br>Polanco → Aeropuerto • $320</div>
+                <div class="trip-card">✅ Completado • Ayer 18:45<br>Roma → Santa Fe • $245</div>
+                <div class="trip-card">✅ Completado • 11 Mayo<br>Centro → Coyoacán • $180</div>
+            `;
         }
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('bottomSheet').classList.add('active');
             const savedTel = localStorage.getItem("conductorTel");
             if (savedTel) {
                 currentUser = { telefono: savedTel, nombre: "Conductor" };
+                toggleBottomNav(true);
+                loadProfile();
                 showScreen('dashboard');
             } else {
+                toggleBottomNav(false);
                 showScreen('home');
             }
         });
