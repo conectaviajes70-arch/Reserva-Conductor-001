@@ -37,6 +37,7 @@
         .btn-reject { background: #ff3b3b; color: #fff; }
         .btn-primary { background: #00c2d6; color: #fff; }
         .btn-final { background: #4ade80; color: #000; }
+        .btn-secondary { background: #333; color: #fff; }
 
         .trip-card {
             background: #121726;
@@ -65,11 +66,23 @@
         }
         input:checked + .slider { background: #00e5ff; }
         input:checked + .slider:before { transform: translateX(26px); }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #0b0f1a;
+            display: flex;
+            padding: 10px;
+            gap: 8px;
+            border-top: 1px solid #1a1f2e;
+            z-index: 100;
+        }
     </style>
 </head>
 <body>
 
-    <!-- PANTALLAS (mismo contenido) -->
+    <!-- ==================== PANTALLAS ==================== -->
+
     <div id="home" class="screen active">
         <h1>🚗 Conecta ViajaYa</h1>
         <h2>Panel de Conductor</h2>
@@ -82,7 +95,7 @@
         <input type="tel" id="telLogin" placeholder="+52 ...">
         <input type="password" id="claveLogin" placeholder="Clave">
         <button onclick="loginConductor()">Entrar</button>
-        <button onclick="showScreen('home')" style="background:#333;color:white;">← Volver</button>
+        <button onclick="showScreen('home')" class="btn-secondary">← Volver</button>
     </div>
 
     <div id="registerConductor" class="screen">
@@ -90,11 +103,12 @@
         <input type="text" id="nombreConductor" placeholder="Nombre completo">
         <input type="tel" id="telConductor" placeholder="+52 ...">
         <input type="text" id="placas" placeholder="Placas del vehículo">
-        <input type="text" id="modelo" placeholder="Marca y modelo (ej: Toyota Camry 2022)">
+        <input type="text" id="modelo" placeholder="Marca y modelo">
         <button onclick="registrarConductor()">Registrarme</button>
-        <button onclick="showScreen('home')" style="background:#333;color:white;">← Volver</button>
+        <button onclick="showScreen('home')" class="btn-secondary">← Volver</button>
     </div>
 
+    <!-- DASHBOARD -->
     <div id="dashboard" class="screen">
         <div class="status-toggle">
             <span id="statusText">Offline</span>
@@ -107,15 +121,15 @@
         <div id="viajesList"></div>
     </div>
 
+    <!-- DETALLE DE VIAJE -->
     <div id="tripDetail" class="screen">
-        <button onclick="showScreen('dashboard')" style="background:#333;color:white;width:auto;">← Volver</button>
+        <button onclick="showScreen('dashboard')" class="btn-secondary" style="width:auto;">← Volver</button>
         <h2>Detalles del Viaje</h2>
         <div id="mapDetail" class="map-small"></div>
         <div style="background:#121726;padding:15px;border-radius:12px;margin:15px 0;">
             <p><strong>Pasajero:</strong> <span id="pasajeroNombre"></span></p>
             <p><strong>Origen:</strong> <span id="origenText"></span></p>
             <p><strong>Destino:</strong> <span id="destinoText"></span></p>
-            <p><strong>Parada:</strong> <span id="paradaText"></span></p>
             <p><strong>Distancia:</strong> <span id="kmText"></span> km</p>
             <p><strong>Precio:</strong> <span id="precioText" class="price"></span></p>
         </div>
@@ -123,16 +137,36 @@
         <button onclick="rechazarViaje()" class="btn-reject">Rechazar</button>
     </div>
 
+    <!-- VIAJE ACTIVO -->
     <div id="activeTrip" class="screen">
         <h2>Viaje en Curso</h2>
         <div id="mapActive" class="map-large"></div>
         <p id="tripStatus" style="text-align:center; font-size:18px; margin:15px 0;">Yendo a recoger al pasajero...</p>
+        
         <button onclick="llegueAlOrigen()" class="btn-primary">Llegué al Origen</button>
         <button onclick="iniciarViaje()" class="btn-primary">Iniciar Viaje</button>
         <button onclick="finalizarViaje()" class="btn-final">Finalizar Viaje</button>
     </div>
 
-    <!-- Mapbox JS -->
+    <!-- PERFIL -->
+    <div id="profile" class="screen">
+        <h2>Mi Perfil</h2>
+        <div style="background:#121726;padding:20px;border-radius:12px;">
+            <p><strong>Nombre:</strong> <span id="perfilNombre">---</span></p>
+            <p><strong>Vehículo:</strong> <span id="perfilVehiculo">---</span></p>
+            <p><strong>Placas:</strong> <span id="perfilPlacas">---</span></p>
+            <p><strong>Ganancias Hoy:</strong> $<span id="gananciasHoy">0</span></p>
+            <p><strong>Calificación:</strong> ⭐ 4.8</p>
+        </div>
+        <button onclick="cerrarSesion()" class="btn-reject" style="margin-top:20px;">Cerrar Sesión</button>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button onclick="showScreen('dashboard')">🚗 Viajes</button>
+        <button onclick="showScreen('profile')">👤 Perfil</button>
+    </div>
+
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script>
         mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW_A";
@@ -142,71 +176,115 @@
         let mapDetail = null;
         let mapActive = null;
         let isOnline = false;
+        let refreshInterval = null;
+
+        const API_URL = "https://script.google.com/macros/s/AKfycbxjszK1c_tq1Ijpxdgyxz7LMWqlmFYKJUQK-3aC-wjqSInqMbEXqGtWyfr0AuzJP-MnCw/exec";
 
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
 
-            // Inicializar mapas cuando se muestre la pantalla
             if (screenId === 'tripDetail') initMapDetail();
             if (screenId === 'activeTrip') initMapActive();
         }
 
+        // ==================== MAPAS ====================
         function initMapDetail() {
             if (mapDetail) return;
-            mapDetail = new mapboxgl.Map({
-                container: 'mapDetail',
-                style: 'mapbox://styles/mapbox/navigation-night-v1',
-                center: [-99.13, 19.43],
-                zoom: 12
-            });
+            mapDetail = new mapboxgl.Map({ container: 'mapDetail', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 12 });
         }
-
         function initMapActive() {
             if (mapActive) return;
-            mapActive = new mapboxgl.Map({
-                container: 'mapActive',
-                style: 'mapbox://styles/mapbox/navigation-night-v1',
-                center: [-99.13, 19.43],
-                zoom: 13
-            });
+            mapActive = new mapboxgl.Map({ container: 'mapActive', style: 'mapbox://styles/mapbox/navigation-night-v1', center: [-99.13, 19.43], zoom: 13 });
         }
 
-        // Resto de funciones (login, viajes, etc.)
-        function loginConductor() {
+        // ==================== LOGIN + PERSISTENCIA ====================
+        async function loginConductor() {
             const tel = document.getElementById('telLogin').value.trim();
-            if (!tel) return alert("Ingresa tu teléfono");
-            alert("✅ Login simulado exitoso");
-            currentUser = { telefono: tel };
-            showScreen('dashboard');
-            loadViajesDisponibles();
+            const clave = document.getElementById('claveLogin').value.trim();
+            
+            if (!tel || !clave) return alert("Ingresa teléfono y clave");
+
+            // Preparado para backend real
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ tipo: "loginConductor", telefono: tel, clave: clave })
+                });
+                const data = await res.json();
+
+                if (data.status === "ok") {
+                    currentUser = { telefono: tel, nombre: data.nombre || "Conductor" };
+                    localStorage.setItem("conductorTel", tel);
+                    loadProfile();
+                    showScreen('dashboard');
+                    toggleOnline(); // Activa automáticamente
+                } else {
+                    alert("Datos incorrectos");
+                }
+            } catch(e) {
+                // Modo demo
+                currentUser = { telefono: tel, nombre: "Conductor Demo" };
+                localStorage.setItem("conductorTel", tel);
+                loadProfile();
+                showScreen('dashboard');
+                toggleOnline();
+            }
         }
 
         function registrarConductor() {
             const nombre = document.getElementById('nombreConductor').value.trim();
             const tel = document.getElementById('telConductor').value.trim();
-            if (!nombre || !tel) return alert("Completa nombre y teléfono");
-            alert("✅ Registro exitoso");
+            if (!nombre || !tel) return alert("Nombre y teléfono son obligatorios");
+
+            alert("✅ Registro exitoso (simulado)");
             currentUser = { telefono: tel, nombre };
+            localStorage.setItem("conductorTel", tel);
+            loadProfile();
             showScreen('dashboard');
         }
 
+        function loadProfile() {
+            if (!currentUser) return;
+            document.getElementById('perfilNombre').textContent = currentUser.nombre;
+            document.getElementById('perfilVehiculo').textContent = "Toyota Camry 2022";
+            document.getElementById('perfilPlacas').textContent = "ABC-1234";
+            document.getElementById('gananciasHoy').textContent = "1240";
+        }
+
+        function cerrarSesion() {
+            if (confirm("¿Cerrar sesión?")) {
+                localStorage.removeItem("conductorTel");
+                location.reload();
+            }
+        }
+
+        // ==================== ONLINE + AUTO REFRESH ====================
         function toggleOnline() {
             isOnline = document.getElementById('toggleOnline').checked;
             document.getElementById('statusText').textContent = isOnline ? "🟢 Online" : "Offline";
             document.getElementById('statusText').style.color = isOnline ? "#00e5ff" : "#aaa";
-            if (isOnline) loadViajesDisponibles();
+
+            if (isOnline) {
+                loadViajesDisponibles();
+                refreshInterval = setInterval(loadViajesDisponibles, 15000); // Cada 15 segundos
+            } else {
+                if (refreshInterval) clearInterval(refreshInterval);
+            }
         }
 
         function loadViajesDisponibles() {
             const container = document.getElementById('viajesList');
-            container.innerHTML = '';
-            // Viajes de ejemplo
-            const viajes = [
-                {id:1, pasajero:"María López", origen:"Polanco", destino:"Aeropuerto", km:18.5, precio:320, fecha:"Hoy 16:30"},
-                {id:2, pasajero:"Carlos Ramírez", origen:"Roma Norte", destino:"Santa Fe", km:12.3, precio:245, fecha:"Hoy 17:00"}
+            container.innerHTML = '<p style="text-align:center;color:#666;">Buscando viajes cercanos...</p>';
+
+            // Preparado para backend
+            const viajesMock = [
+                {id:1, pasajero:"María López", origen:"Polanco", destino:"Aeropuerto", km:18.5, precio:320, fecha:"Hoy 16:45"},
+                {id:2, pasajero:"Carlos Ramírez", origen:"Roma Norte", destino:"Santa Fe", km:12.3, precio:245, fecha:"Hoy 17:10"}
             ];
-            viajes.forEach(v => {
+
+            container.innerHTML = '';
+            viajesMock.forEach(v => {
                 const div = document.createElement('div');
                 div.className = 'trip-card';
                 div.innerHTML = `
@@ -231,19 +309,26 @@
         }
 
         function aceptarViaje() { alert("✅ Viaje Aceptado"); showScreen('activeTrip'); }
-        function rechazarViaje() { if(confirm("Rechazar viaje?")) showScreen('dashboard'); }
+        function rechazarViaje() { if(confirm("¿Rechazar este viaje?")) showScreen('dashboard'); }
         function llegueAlOrigen() { alert("✅ Llegaste al origen"); }
         function iniciarViaje() { alert("🛣️ Viaje iniciado"); }
         function finalizarViaje() {
             if(confirm("¿Finalizar viaje?")) {
-                alert("🎉 Viaje finalizado correctamente");
+                alert("🎉 Viaje completado +$" + (currentTrip ? currentTrip.precio : 300));
                 showScreen('dashboard');
             }
         }
 
-        // Iniciar
+        // ==================== INICIO ====================
         document.addEventListener('DOMContentLoaded', () => {
-            showScreen('home');
+            const savedTel = localStorage.getItem("conductorTel");
+            if (savedTel) {
+                currentUser = { telefono: savedTel, nombre: "Conductor" };
+                loadProfile();
+                showScreen('dashboard');
+            } else {
+                showScreen('home');
+            }
         });
     </script>
 </body>
